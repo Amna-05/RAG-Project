@@ -1,0 +1,32 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "rag-project"
+version = "0.1.0"
+description = "RAG system with functional programming approach"
+readme = "README.md"
+requires-python = ">=3.11"  
+dependencies = [
+    "google-generativeai>=0.8.5",
+    "langchain-huggingface>=0.3.1",
+    "pinecone-client>=6.0.0",
+    "pinecone[asyncio,grpc]>=7.3.0",
+    "pydantic>=2.11.9",
+    "pydantic-settings>=2.11.0",
+    "pypdf2>=3.0.1",
+    "pytest>=8.4.2",
+    "python-docx>=1.2.0",
+    "sentence-transformers>=5.1.1",
+]
+
+
+
+# Hatchling configuration for src layout
+[tool.hatch.build.targets.wheel]
+packages = ["src/rag"]
+
+
+#[tool.hatch.build.targets.wheel.shared-data]
+#"data" = "share/rag/data"
