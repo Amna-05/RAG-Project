@@ -311,10 +311,6 @@ Technical Excellence
 - ✅ Extensible architecture
 - ✅ Portfolio-ready professional project
 
-
-
-
-
 # 📄 License
 
 This project is licensed under the MIT License — see the LICENSE
@@ -327,3 +323,5 @@ Amna Akram
 GitHub: @Amna-05 
 
 Email: amnaaa963@gmail.com
+
+Made with 🤍 by Amna.
