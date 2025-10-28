@@ -9,6 +9,7 @@ import uuid
 from sqlalchemy import String, DateTime, Boolean, Integer
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 
 from rag.models.base import Base
 
@@ -58,7 +59,10 @@ class User(Base):
     # Usage tracking
     document_count: Mapped[int] = mapped_column(Integer, default=0)
     query_count: Mapped[int] = mapped_column(Integer, default=0)
-    
+    #adding this fields to track user interactions
+    documents = relationship("Document", back_populates="user")
+    chat_messages = relationship("ChatMessage", back_populates="user")
+
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(
         DateTime, 

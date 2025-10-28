@@ -60,23 +60,25 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             await session.close()
 
 
-async def init_db() -> None:
+async def init_db():
     """
     Initialize database tables.
-    Creates all tables defined in models.
+    Creates all tables defined in Base.metadata.
     """
     try:
+        logger.info("🚀 Initializing database...")
+        
+        # Import all models to register them with Base
+        from rag.models.user import User
+        from rag.models.token import RefreshToken
+        from rag.models.document import Document, DocumentChunk, ChatMessage
+        
         async with engine.begin() as conn:
-            # Import all models to ensure they're registered
-            from rag.models.user import User
-            from rag.models.token import RefreshToken
-            from rag.models.document import DocumentMetadata
-            from rag.models.query import QueryHistory
-            
             # Create all tables
             await conn.run_sync(Base.metadata.create_all)
-            
+        
         logger.info("✅ Database tables created successfully")
+        
     except Exception as e:
         logger.error(f"❌ Failed to initialize database: {e}")
         raise

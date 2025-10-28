@@ -1,9 +1,9 @@
 """
-Simple Pinecone vector database integration.
+Simple Pinecone vector database integration with user isolation.
 Clean, focused, gets the job done.
 """
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import time
 
 try:
@@ -14,14 +14,14 @@ except ImportError:
     ServerlessSpec = None
     PINECONE_AVAILABLE = False
 
-from rag.config import get_settings
+from rag.core.config import get_settings
 from rag.embeddings import EmbeddingGenerator
 
 logger = logging.getLogger(__name__)
 
 
 class SimplePineconeStore:
-    """Simple Pinecone vector database client."""
+    """Simple Pinecone vector database client with user isolation."""
 
     def __init__(self):
         """Initialize Pinecone connection."""
@@ -39,9 +39,11 @@ class SimplePineconeStore:
         # Configure Pinecone
         self.pc = Pinecone(api_key=settings.pinecone_api_key)
         self.index_name = settings.pinecone_index_name
+        self.use_namespaces = settings.pinecone_use_namespaces
         self.index = None
 
         logger.info(f"🌲 Initialized Pinecone client for index: {self.index_name}")
+        logger.info(f"🔐 User namespaces: {'enabled' if self.use_namespaces else 'disabled'}")
 
     def connect_to_index(self) -> bool:
         """Connect to existing Pinecone index."""
@@ -50,9 +52,9 @@ class SimplePineconeStore:
 
             # Test connection
             stats = self.pc.describe_index(self.index_name)
-            total_vectors = stats["dimension"]
+            dimension = stats.get("dimension", "unknown")
             logger.info(f"✅ Connected to index: {self.index_name}")
-            logger.info(f"📊 Index dimension: {total_vectors}")
+            logger.info(f"📊 Index dimension: {dimension}")
             return True
 
         except Exception as e:
@@ -91,8 +93,12 @@ class SimplePineconeStore:
             logger.error(f"❌ Failed to create index: {e}")
             return False
 
-    def upsert_documents(self, embedded_docs: List[Dict[str, Any]]) -> bool:
-        """Upload embedded documents to Pinecone."""
+    def upsert_documents(
+        self, 
+        embedded_docs: List[Dict[str, Any]],
+        namespace: Optional[str] = None
+    ) -> bool:
+        """Upload embedded documents to Pinecone with optional namespace."""
         if not self.index and not self.connect_to_index():
             logger.error("❌ No index connection")
             return False
@@ -101,7 +107,12 @@ class SimplePineconeStore:
             logger.warning("⚠️ No documents to upsert")
             return True
 
-        logger.info(f"📤 Upserting {len(embedded_docs)} documents to Pinecone")
+        effective_namespace = namespace if self.use_namespaces else None
+        
+        logger.info(
+            f"📤 Upserting {len(embedded_docs)} documents "
+            f"(namespace: {effective_namespace or 'default'})"
+        )
 
         try:
             vectors = []
@@ -110,45 +121,75 @@ class SimplePineconeStore:
                     logger.warning(f"⚠️ Skipping document without embedding: {doc.get('id')}")
                     continue
 
+                metadata = doc.get('metadata', {})
+                
+                # Ensure critical fields are in metadata
+                metadata.update({
+                    'text': doc.get('text', '')[:1000],  # Pinecone metadata limit
+                    'source': doc.get('source', ''),
+                    'file_name': doc.get('file_name', ''),
+                    'chunk_index': doc.get('chunk_index', 0),
+                    'user_id': metadata.get('user_id', ''),
+                    'document_id': metadata.get('document_id', '')
+                })
+
                 vectors.append({
                     'id': str(doc.get('id', f"doc_{len(vectors)}")),
                     'values': doc['embedding'],
-                    'metadata': {
-                        'text': doc.get('text', ''),
-                        'source': doc.get('source', ''),
-                        'file_name': doc.get('file_name', ''),
-                        'chunk_index': doc.get('chunk_index', 0)
-                    }
+                    'metadata': metadata
                 })
 
             if not vectors:
                 logger.error("❌ No valid vectors to upsert")
                 return False
 
-            self.index.upsert(vectors=vectors)
-            logger.info("✅ Successfully upserted vectors to Pinecone")
+            self.index.upsert(
+                vectors=vectors,
+                namespace=effective_namespace or ""
+            )
+            
+            logger.info(f"✅ Successfully upserted {len(vectors)} vectors")
             return True
 
         except Exception as e:
             logger.error(f"❌ Upsert failed: {e}")
             return False
 
-    def search_similar(self, query_embedding: List[float], top_k: int = 5, include_metadata: bool = True) -> List[Dict[str, Any]]:
-        """Search for similar vectors."""
+    def search_similar(
+        self, 
+        query_embedding: List[float], 
+        top_k: int = 5,
+        namespace: Optional[str] = None,
+        filter_dict: Optional[Dict[str, Any]] = None,
+        include_metadata: bool = True
+    ) -> List[Dict[str, Any]]:
+        """Search for similar vectors with optional filtering."""
         if not self.index and not self.connect_to_index():
             return []
 
         try:
-            logger.info(f"🔍 Searching for {top_k} similar documents")
-
-            response = self.index.query(
-                vector=query_embedding,
-                top_k=top_k,
-                include_metadata=include_metadata
+            effective_namespace = namespace if self.use_namespaces else None
+            
+            logger.info(
+                f"🔍 Searching for {top_k} similar documents "
+                f"(namespace: {effective_namespace or 'default'}, "
+                f"filter: {filter_dict or 'none'})"
             )
 
+            query_params = {
+                "vector": query_embedding,
+                "top_k": top_k,
+                "include_metadata": include_metadata,
+                "namespace": effective_namespace or ""
+            }
+            
+            if filter_dict:
+                query_params["filter"] = filter_dict
+
+            response = self.index.query(**query_params)
+
             results = []
-            for match in response["matches"]:
+            for match in response.get("matches", []):
                 results.append({
                     "id": match["id"],
                     "score": float(match["score"]),
@@ -162,26 +203,40 @@ class SimplePineconeStore:
             logger.error(f"❌ Search failed: {e}")
             return []
 
-    def get_index_stats(self) -> Dict[str, Any]:
-        """Get index statistics."""
+    def delete_by_filter(
+        self,
+        filter_dict: Dict[str, Any],
+        namespace: Optional[str] = None
+    ) -> bool:
+        """Delete vectors matching filter criteria."""
         if not self.index and not self.connect_to_index():
-            return {}
+            return False
 
         try:
-            stats = self.pc.describe_index(self.index_name)
-            return {
-                "dimension": stats["dimension"],
-                "status": stats["status"],
-                "host": stats["host"]
-            }
+            effective_namespace = namespace if self.use_namespaces else None
+            
+            logger.info(f"🗑️ Deleting vectors with filter: {filter_dict}")
+            
+            self.index.delete(
+                filter=filter_dict,
+                namespace=effective_namespace or ""
+            )
+            
+            logger.info("✅ Vectors deleted successfully")
+            return True
+            
         except Exception as e:
-            logger.error(f"❌ Failed to get stats: {e}")
-            return {}
+            logger.error(f"❌ Delete failed: {e}")
+            return False
 
 
-# === Convenience functions ===
-def store_embedded_documents(embedded_docs: List[Dict[str, Any]]) -> bool:
-    """Store embedded documents."""
+# === Updated convenience functions ===
+
+def store_embedded_documents(
+    embedded_docs: List[Dict[str, Any]],
+    namespace: Optional[str] = None
+) -> bool:
+    """Store embedded documents with optional namespace."""
     store = SimplePineconeStore()
 
     if embedded_docs and embedded_docs[0].get('embedding'):
@@ -189,18 +244,55 @@ def store_embedded_documents(embedded_docs: List[Dict[str, Any]]) -> bool:
         if not store.create_index_if_not_exists(dimension):
             return False
 
-    return store.upsert_documents(embedded_docs)
+    return store.upsert_documents(embedded_docs, namespace=namespace)
 
 
-def search_documents(query_embedding: List[float], top_k: int = 5) -> List[Dict[str, Any]]:
-    """Search documents by embedding."""
+def search_documents(
+    query_embedding: List[float],
+    top_k: int = 5,
+    namespace: Optional[str] = None,
+    user_id: Optional[str] = None
+) -> List[Dict[str, Any]]:
+    """Search documents with optional user filtering."""
     store = SimplePineconeStore()
-    return store.search_similar(query_embedding, top_k)
+    
+    filter_dict = None
+    if user_id and not store.use_namespaces:
+        filter_dict = {"user_id": user_id}
+    
+    return store.search_similar(
+        query_embedding,
+        top_k=top_k,
+        namespace=namespace,
+        filter_dict=filter_dict
+    )
 
 
-def search_documents_by_text(query: str, top_k: int = 5):
-    """Convert query text → embedding → search Pinecone."""
+def search_documents_by_text(
+    query: str,
+    top_k: int = 5,
+    namespace: Optional[str] = None,
+    user_id: Optional[str] = None
+) -> List[Dict[str, Any]]:
+    """Convert query text → embedding → search."""
     embedder = EmbeddingGenerator()
     query_embedding = embedder.embed_single_text(query)
+    
+    return search_documents(
+        query_embedding.tolist(),
+        top_k=top_k,
+        namespace=namespace,
+        user_id=user_id
+    )
+
+
+def delete_document(
+    document_id: str,
+    namespace: Optional[str] = None
+) -> bool:
+    """Delete all chunks of a document."""
     store = SimplePineconeStore()
-    return store.search_similar(query_embedding.tolist(), top_k)
+    return store.delete_by_filter(
+        filter_dict={"document_id": document_id},
+        namespace=namespace
+    )

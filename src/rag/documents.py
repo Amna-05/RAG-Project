@@ -19,7 +19,7 @@ try:
 except ImportError:
     DocxDocument = None
 
-from rag.config import get_settings
+from rag.core.config import get_settings
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)

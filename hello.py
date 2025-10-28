@@ -1,6 +1,6 @@
 # main.py
 def main():
-    print("Hello from [your project name]!")
+    print("Hello from rag-project!")
 
 
 if __name__ == "__main__":

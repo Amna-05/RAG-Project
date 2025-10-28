@@ -1,65 +1,129 @@
 """
-Document metadata database model.
-File: src/rag/models/document.py
+Document models for RAG system.
+Tracks uploaded files and their metadata.
 """
 from datetime import datetime
-from typing import Optional
-import uuid
+from uuid import UUID, uuid4
 
-from sqlalchemy import String, DateTime, Integer, Text
-from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Text, Boolean, Float
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.orm import relationship
 
-from rag.models.base import Base
+from rag.core.database import Base
 
 
-class DocumentMetadata(Base):
-    """Track user documents for management and analytics."""
-    __tablename__ = "document_metadata"
+class Document(Base):
+    """
+    Stores uploaded document metadata.
     
-    # Primary key
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), 
-        primary_key=True, 
-        default=uuid.uuid4
-    )
+    WHY SEPARATE TABLE:
+    - Track file ownership per user
+    - Store processing status
+    - Enable document management (list, delete)
+    - Audit trail (when uploaded, by whom)
+    """
+    __tablename__ = "documents"
     
-    # Foreign key to user
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), 
-        nullable=False, 
-        index=True
-    )
+    id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    user_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     
-    # Document info
-    filename: Mapped[str] = mapped_column(String(255), nullable=False)
-    original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
-    file_type: Mapped[str] = mapped_column(String(50), nullable=False)
-    file_size: Mapped[int] = mapped_column(Integer, nullable=False)  # bytes
+    # File info
+    filename = Column(String(255), nullable=False)
+    original_filename = Column(String(255), nullable=False)  # User's original name
+    file_path = Column(String(512), nullable=False)  # Where file is stored
+    file_size = Column(Integer, nullable=False)  # Bytes
+    file_type = Column(String(50), nullable=False)  # pdf, docx, txt
     
-    # Processing info
-    chunk_count: Mapped[int] = mapped_column(Integer, default=0)
-    embedding_model: Mapped[str] = mapped_column(String(100), nullable=False)
-    processing_status: Mapped[str] = mapped_column(
-        String(50), 
-        default="pending"  # pending, processing, completed, failed
-    )
+    # Processing status
+    status = Column(String(20), default="pending")  # pending, processing, completed, failed
+    processing_error = Column(Text, nullable=True)
     
-    # Pinecone info (JSON array of IDs)
-    pinecone_ids: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # Metadata
+    num_chunks = Column(Integer, default=0)
+    total_tokens = Column(Integer, default=0)
     
     # Timestamps
-    uploaded_at: Mapped[datetime] = mapped_column(
-        DateTime, 
-        default=datetime.utcnow
-    )
-    processed_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime, 
-        nullable=True
-    )
+    uploaded_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    processed_at = Column(DateTime, nullable=True)
     
-    # Error tracking
-    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # Soft delete
+    is_deleted = Column(Boolean, default=False)
+    deleted_at = Column(DateTime, nullable=True)
     
-    def __repr__(self) -> str:
-        return f"<Document {self.filename}>"
+    # Relationships
+    user = relationship("User", back_populates="documents")
+    chunks = relationship("DocumentChunk", back_populates="document", cascade="all, delete-orphan")
+    
+    def __repr__(self):
+        return f"<Document {self.original_filename} by user {self.user_id}>"
+
+
+class DocumentChunk(Base):
+    """
+    Stores individual chunks of documents.
+    
+    WHY STORE CHUNKS:
+    - Vector DB might fail/reset
+    - Enable re-indexing without re-processing
+    - Store metadata per chunk
+    - Debugging and auditing
+    """
+    __tablename__ = "document_chunks"
+    
+    id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    document_id = Column(PG_UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
+    
+    # Chunk data
+    chunk_index = Column(Integer, nullable=False)  # Order in document
+    content = Column(Text, nullable=False)
+    
+    # Vector embedding (optional - if you want to store in DB too)
+    # embedding = Column(ARRAY(Float))  # Or store only in vector DB
+    
+    # Metadata for better retrieval
+    page_number = Column(Integer, nullable=True)
+    start_char = Column(Integer, nullable=True)
+    end_char = Column(Integer, nullable=True)
+    
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    
+    # Relationships
+    document = relationship("Document", back_populates="chunks")
+    
+    def __repr__(self):
+        return f"<Chunk {self.chunk_index} of document {self.document_id}>"
+
+
+class ChatMessage(Base):
+    """
+    Stores chat history per user.
+    
+    WHY STORE CHATS:
+    - User can see history
+    - Context for multi-turn conversations
+    - Analytics and improvements
+    - Fine-tuning data collection
+    """
+    __tablename__ = "chat_messages"
+    
+    id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    user_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    session_id = Column(String(100), nullable=False)  # Group messages in conversation
+    
+    # Message content
+    role = Column(String(20), nullable=False)  # user, assistant, system
+    content = Column(Text, nullable=False)
+    
+    # RAG metadata
+    retrieved_chunks = Column(Integer, default=0)  # How many chunks used
+    model_used = Column(String(50), nullable=True)  # gpt-4, claude, etc.
+    
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    
+    # Relationships
+    user = relationship("User", back_populates="chat_messages")
+    
+    def __repr__(self):
+        return f"<ChatMessage {self.role}: {self.content[:50]}...>"

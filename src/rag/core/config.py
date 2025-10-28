@@ -96,7 +96,32 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
-
+    
+    # ============ Storage Settings ============
+    upload_dir: Path = Field(default=Path("data/uploads"))
+    max_file_size_mb: int = 10
+    allowed_file_types: List[str] = [".pdf", ".docx", ".txt", ".json"]
+    
+     # ============ Document Processing Settings ============
+    chunk_size: int = 1000
+    chunk_overlap: int = 200
+    max_file_size_mb: int = 10
+    allowed_file_types: List[str] = [".pdf", ".docx", ".txt", ".json"]
+    enable_ocr: bool = False
+    
+    # ============ Storage Settings ============
+    upload_dir: Path = Path("data/uploads")
+    data_dir: Path = Path("data")  # ← ADD THIS
+    cache_dir: Path = Path("data/embeddings_cache")
+    logs_dir: Path = Path("logs")
+    
+    @field_validator('upload_dir', 'data_dir', 'cache_dir', 'logs_dir')
+    @classmethod
+    def create_directories(cls, path: Path) -> Path:
+        """Create directories if they don't exist."""
+        path.mkdir(exist_ok=True, parents=True)
+        return path
+    
 # Singleton instance
 _settings: Optional[Settings] = None
 
@@ -107,3 +132,4 @@ def get_settings() -> Settings:
     if _settings is None:
         _settings = Settings()
     return _settings
+

@@ -12,7 +12,7 @@ except ImportError:
     genai = None
     GEMINI_AVAILABLE = False
 
-from rag.config import get_settings
+from rag.core.config import get_settings
 from rag.vectorstore import search_documents_by_text
 
 logger = logging.getLogger(__name__)
@@ -104,7 +104,7 @@ ANSWER:"""
         logger.info(f"🔍 Processing RAG query: {question}")
         
         # Step 1: Retrieve relevant documents
-        search_results = search_documents_by_text(question, top_k=top_k)
+        search_results = search_documents_by_text(question, top_k=top_k,)
         
         if not search_results:
             return {
@@ -150,12 +150,23 @@ def ask_question(question: str, top_k: int = 5) -> str:
     return result['answer']
 
 
-def ask_question_detailed(question: str, top_k: int = 5) -> Dict[str, Any]:
+def ask_question_detailed(
+                question: str,
+                 top_k: int = 5,
+                 namespace: Optional[str] = None,  
+                 user_id: Optional[str] = None
+                 ) -> Dict[str, Any]:
     """
     Ask a question and get detailed results including sources.
     Use this when you want to see what documents were used.
     """
     rag = RAGWithGemini()
+    results = search_documents_by_text(
+        question, 
+        top_k=top_k,
+        namespace=namespace,  
+        user_id=user_id       
+    )
     return rag.query(question, top_k)
 
 

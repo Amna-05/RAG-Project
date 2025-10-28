@@ -25,6 +25,9 @@ from rag.api.v1 import auth
 
 # Import other routers as we create them
 # from rag.api.v1 import documents, queries
+# Add this import at the top:
+from rag.api.v1 import rag as rag_router
+
 
 settings = get_settings()
 
@@ -103,7 +106,6 @@ app.add_middleware(
     allow_methods=settings.cors_methods,
     allow_headers=settings.cors_headers,
 )
-
 
 # ============ Request Logging Middleware ============
 @app.middleware("http")
@@ -251,6 +253,10 @@ app.include_router(
     prefix=settings.api_prefix,  # /api/v1
     tags=["Authentication"]
 )
+
+app.include_router(rag_router.router, 
+                   prefix=settings.api_prefix)
+
 
 # Document routes (create later)
 # app.include_router(

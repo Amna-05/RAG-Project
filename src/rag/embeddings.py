@@ -19,7 +19,7 @@ try:
 except ImportError:
     SentenceTransformer = None
 
-from rag.config import get_settings
+from rag.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
