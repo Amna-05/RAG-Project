@@ -141,6 +141,7 @@ async def process_document_pipeline(
         
         # Store in Pinecone with namespace
         namespace = str(user_id) if settings.pinecone_use_namespaces else None
+        logger.info(f"Storing in Pinecone with namespace: {namespace}")  
         success = store_embedded_documents(embedded_chunks, namespace=namespace)
         
         if not success:
@@ -231,55 +232,104 @@ async def query_documents(
     logger.info(f"Querying documents for user {user_id}: {query}")
     
     try:
-        # Search with user filtering
+        # FIXED: Pass user namespace and filter to search
         namespace = str(user_id) if settings.pinecone_use_namespaces else None
         user_id_str = None if settings.pinecone_use_namespaces else str(user_id)
         
-        # Use your existing function with filtering
-        result = ask_question_detailed(query, top_k=top_k)
+        # Search with user filtering
+        from rag.vectorstore import search_documents_by_text
         
-        # Note: You'll need to update ask_question_detailed to accept namespace/user_id
-        # For now, it will search all documents
+        search_results = search_documents_by_text(
+            query,
+            top_k=top_k,
+            namespace=namespace,
+            user_id=user_id_str
+        )
         
-        answer = result['answer']
-        sources = result['sources']
-        num_sources = result['num_sources_used']
+        logger.info(f"Found {len(search_results)} relevant chunks")
+        
+        # If no documents found, return friendly message
+        if not search_results:
+            await document_crud.create_chat_message(
+                db, user_id=user_id, session_id=session_id,
+                role="user", content=query
+            )
+            
+            no_docs_message = (
+                "I couldn't find any relevant documents to answer your question. "
+                "Please make sure you've uploaded documents and they've finished processing."
+            )
+            
+            await document_crud.create_chat_message(
+                db, user_id=user_id, session_id=session_id,
+                role="assistant", content=no_docs_message,
+                retrieved_chunks=0, model_used=settings.gemini_model
+            )
+            
+            return {
+                "session_id": session_id,
+                "message": no_docs_message,
+                "role": "assistant",
+                "retrieved_chunks": 0,
+                "sources": [],
+                "model_used": settings.gemini_model
+            }
+        
+        # Build context from search results
+        context_parts = []
+        for i, result in enumerate(search_results):
+            metadata = result.get('metadata', {})
+            text = metadata.get('text', '')
+            source = metadata.get('file_name', 'Unknown')
+            
+            context_parts.append(f"[Document {i+1}: {source}]\n{text}\n")
+        
+        context = "\n".join(context_parts)
+        
+        # Call Gemini LLM
+        from rag.llm_integration import generate_answer_with_gemini
+        
+        prompt = f"""Based on the following documents, answer the question.
+
+Documents:
+{context}
+
+Question: {query}
+
+Answer:"""
+        
+        answer = generate_answer_with_gemini(prompt)
         
         # Save user message
         await document_crud.create_chat_message(
-            db,
-            user_id=user_id,
-            session_id=session_id,
-            role="user",
-            content=query
+            db, user_id=user_id, session_id=session_id,
+            role="user", content=query
         )
         
         # Save assistant response
         await document_crud.create_chat_message(
-            db,
-            user_id=user_id,
-            session_id=session_id,
-            role="assistant",
-            content=answer,
-            retrieved_chunks=num_sources,
+            db, user_id=user_id, session_id=session_id,
+            role="assistant", content=answer,
+            retrieved_chunks=len(search_results),
             model_used=settings.gemini_model
         )
         
+        # Format sources
         formatted_sources = [
             {
-                "document": source.get('source', 'Unknown'),
-                "chunk_index": source.get('chunk_index', 0),
-                "relevance_score": source.get('relevance_score', 0.0),
-                "preview": source.get('text_preview', '')[:200]
+                "document": result.get('metadata', {}).get('file_name', 'Unknown'),
+                "chunk_index": result.get('metadata', {}).get('chunk_index', 0),
+                "relevance_score": result.get('score', 0.0),
+                "preview": result.get('metadata', {}).get('text', '')[:200]
             }
-            for source in sources
+            for result in search_results
         ]
         
         return {
             "session_id": session_id,
             "message": answer,
             "role": "assistant",
-            "retrieved_chunks": num_sources,
+            "retrieved_chunks": len(search_results),
             "sources": formatted_sources,
             "model_used": settings.gemini_model
         }
@@ -287,7 +337,6 @@ async def query_documents(
     except Exception as e:
         logger.error(f"Query failed: {e}")
         raise DocumentProcessingError(f"Query failed: {str(e)}")
-
 
 async def get_user_documents_list(
     db: AsyncSession,

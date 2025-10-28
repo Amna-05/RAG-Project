@@ -149,7 +149,31 @@ def ask_question(question: str, top_k: int = 5) -> str:
     result = rag.query(question, top_k)
     return result['answer']
 
-
+def generate_answer_with_gemini(prompt: str) -> str:
+    """
+    Simple wrapper to generate answer using Gemini.
+    
+    Args:
+        prompt: The prompt with context and question
+        
+    Returns:
+        Generated answer as string
+    """
+    settings = get_settings()
+    
+    try:
+        import google.generativeai as genai
+        
+        genai.configure(api_key=settings.google_api_key)
+        model = genai.GenerativeModel(settings.gemini_model)
+        
+        response = model.generate_content(prompt)
+        
+        return response.text
+        
+    except Exception as e:
+        logger.error(f"Gemini generation failed: {e}")
+        return f"I apologize, but I encountered an error generating a response: {str(e)}"
 def ask_question_detailed(
                 question: str,
                  top_k: int = 5,

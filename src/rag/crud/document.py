@@ -224,12 +224,29 @@ async def get_user_sessions(
     user_id: UUID,
     limit: int = 20
 ) -> List[str]:
-    """Get list of session IDs for a user."""
-    result = await db.execute(
-        select(ChatMessage.session_id)
+    """
+    Get list of session IDs for a user.
+    
+    FIXED: Use subquery to handle DISTINCT + ORDER BY in PostgreSQL.
+    """
+    from sqlalchemy import func
+    
+    # Subquery: Get latest message per session
+    subquery = (
+        select(
+            ChatMessage.session_id,
+            func.max(ChatMessage.created_at).label('last_message_at')
+        )
         .where(ChatMessage.user_id == user_id)
-        .distinct()
-        .order_by(ChatMessage.created_at.desc())
+        .group_by(ChatMessage.session_id)
+        .subquery()
+    )
+    
+    # Main query: Get session_ids ordered by last message
+    result = await db.execute(
+        select(subquery.c.session_id)
+        .order_by(subquery.c.last_message_at.desc())
         .limit(limit)
     )
+    
     return list(result.scalars().all())
