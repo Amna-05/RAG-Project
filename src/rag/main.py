@@ -24,7 +24,7 @@ from rag.core.database import init_db, close_db
 from rag.api.v1 import auth
 
 # Import other routers as we create them
-# from rag.api.v1 import documents, queries
+#from rag.api.v1 import documents, queries
 # Add this import at the top:
 from rag.api.v1 import rag as rag_router
 
@@ -258,19 +258,19 @@ app.include_router(rag_router.router,
                    prefix=settings.api_prefix)
 
 
-# Document routes (create later)
-# app.include_router(
-#     documents.router,
-#     prefix=settings.api_prefix,
-#     tags=["Documents"]
-# )
-
-# Query routes (create later)
-# app.include_router(
-#     queries.router,
-#     prefix=settings.api_prefix,
-#     tags=["Queries"]
-# )
+#Document routes (create later)
+#app.include_router(
+#    documents.router,
+#    prefix=settings.api_prefix,
+#    tags=["Documents"]
+#)
+#
+##Query routes (create later)
+#app.include_router(
+#    queries.router,
+#    prefix=settings.api_prefix,
+#    tags=["Queries"]
+#)
 
 
 # ============ Development Info ============

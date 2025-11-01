@@ -15,7 +15,7 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
-        extra='ignore'  # THIS IS KEY - ignores extra fields from .env
+        extra='ignore'
     )
     
     # ============ Application Settings ============
@@ -28,7 +28,6 @@ class Settings(BaseSettings):
     database_url: str = Field(
         default="postgresql+asyncpg://postgres:password@localhost:5432/rag_db"
     )
-    
     db_pool_size: int = 5
     db_max_overflow: int = 10
     db_pool_timeout: int = 30
@@ -38,7 +37,6 @@ class Settings(BaseSettings):
     jwt_secret_key: str = Field(default="change-this-secret-key")
     jwt_refresh_secret_key: str = Field(default="change-this-refresh-key")
     jwt_algorithm: str = "HS256"
-    
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
     
@@ -62,11 +60,28 @@ class Settings(BaseSettings):
     embedding_batch_size: int = 32
     embedding_cache_enabled: bool = True
     
+    # ============ OpenAI Settings ============
+    openai_api_key: str = Field(default="")
+    openai_model: str = "gpt-4o-mini"
+    openai_temperature: float = 0.7
+    openai_max_tokens: int = 1024
+    
     # ============ Google Gemini Settings ============
     google_api_key: str = Field(default="")
     gemini_model: str = "gemini-2.0-flash"
     gemini_temperature: float = 0.7
     gemini_max_tokens: int = 1024
+    
+    # ============ Anthropic Claude Settings ============
+    anthropic_api_key: str = Field(default="")
+    claude_model: str = "claude-3-5-sonnet-20241022"
+    claude_temperature: float = 0.7
+    claude_max_tokens: int = 1024
+    
+    # ============ Ollama (Local) Settings ============
+    use_ollama: bool = False
+    ollama_base_url: str = "http://localhost:11434"
+    ollama_model: str = "llama3.2"
     
     # ============ Document Processing Settings ============
     chunk_size: int = 1000
@@ -77,10 +92,11 @@ class Settings(BaseSettings):
     
     # ============ Storage Settings ============
     upload_dir: Path = Path("data/uploads")
+    data_dir: Path = Path("data")
     cache_dir: Path = Path("data/embeddings_cache")
     logs_dir: Path = Path("logs")
     
-    @field_validator('upload_dir', 'cache_dir', 'logs_dir')
+    @field_validator('upload_dir', 'data_dir', 'cache_dir', 'logs_dir')
     @classmethod
     def create_directories(cls, path: Path) -> Path:
         """Create directories if they don't exist."""
@@ -96,32 +112,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
-    
-    # ============ Storage Settings ============
-    upload_dir: Path = Field(default=Path("data/uploads"))
-    max_file_size_mb: int = 10
-    allowed_file_types: List[str] = [".pdf", ".docx", ".txt", ".json"]
-    
-     # ============ Document Processing Settings ============
-    chunk_size: int = 1000
-    chunk_overlap: int = 200
-    max_file_size_mb: int = 10
-    allowed_file_types: List[str] = [".pdf", ".docx", ".txt", ".json"]
-    enable_ocr: bool = False
-    
-    # ============ Storage Settings ============
-    upload_dir: Path = Path("data/uploads")
-    data_dir: Path = Path("data")  # ← ADD THIS
-    cache_dir: Path = Path("data/embeddings_cache")
-    logs_dir: Path = Path("logs")
-    
-    @field_validator('upload_dir', 'data_dir', 'cache_dir', 'logs_dir')
-    @classmethod
-    def create_directories(cls, path: Path) -> Path:
-        """Create directories if they don't exist."""
-        path.mkdir(exist_ok=True, parents=True)
-        return path
-    
+
 # Singleton instance
 _settings: Optional[Settings] = None
 
@@ -132,4 +123,3 @@ def get_settings() -> Settings:
     if _settings is None:
         _settings = Settings()
     return _settings
-

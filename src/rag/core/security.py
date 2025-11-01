@@ -87,7 +87,7 @@ def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None) 
     
     encoded_jwt = jwt.encode(
         to_encode,
-        settings.jwt_refresh_secret_key,
+        settings.jwt_refresh_secret_key,                          
         algorithm=settings.jwt_algorithm
     )
     
@@ -99,10 +99,8 @@ def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None) 
 def decode_access_token(token: str) -> Optional[dict]:
     """
     Decode and verify access token.
-    
     Args:
         token: JWT access token
-        
     Returns:
         Decoded token data or None if invalid
     """

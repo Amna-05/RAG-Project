@@ -19,6 +19,10 @@ from rag.documents import process_document
 from rag.embeddings import embed_document_chunks
 from rag.vectorstore import store_embedded_documents, search_documents_by_text, delete_document
 from rag.llm_integration import ask_question_detailed
+from rag.services.llm_service import get_llm_service
+
+#llm_service.py
+from rag.services.llm_service import generate_answer
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -297,21 +301,31 @@ Documents:
 Question: {query}
 
 Answer:"""
-        
-        answer = generate_answer_with_gemini(prompt)
-        
+        # Commenting out previous one to test how updated will work out  how llm_service.py works 
+        #answer = generate_answer_with_gemini(prompt)
+        from rag.services.llm_service import generate_answer
+
+        answer = generate_answer(
+            prompt,
+            max_tokens=settings.gemini_max_tokens,
+            temperature=settings.gemini_temperature
+        )
+
         # Save user message
         await document_crud.create_chat_message(
             db, user_id=user_id, session_id=session_id,
             role="user", content=query
         )
-        
+        from rag.services.llm_service import get_llm_service
+        llm_service = get_llm_service()
+        model_used = f"{llm_service.last_successful_provider.value}" if llm_service.        last_successful_provider else "unknown"
+
         # Save assistant response
         await document_crud.create_chat_message(
             db, user_id=user_id, session_id=session_id,
             role="assistant", content=answer,
             retrieved_chunks=len(search_results),
-            model_used=settings.gemini_model
+            model_used=model_used
         )
         
         # Format sources

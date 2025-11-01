@@ -116,7 +116,7 @@ class EmbeddingGenerator:
         
         # Check cache first
         if self.cache:
-            cached = self.cache.get(clean_text, self.model_name)
+            cached = self.cache.get(clean_text , self.model_name)
             if cached is not None:
                 logger.debug(f"📋 Cache hit: {clean_text[:50]}...")
                 return cached
@@ -246,9 +246,6 @@ class EmbeddingGenerator:
         
         return updated_docs
     
-
-
-
 
 
 # Simple convenience function - this is what you'll actually use

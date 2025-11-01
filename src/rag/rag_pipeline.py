@@ -58,7 +58,7 @@ def process_new_document(file_path: str) -> bool:
         
         if success:
             print("✅ Document successfully ingested into RAG system!")
-            return True
+            return True  
         else:
             print("❌ Failed to store in vector database")
             return False
