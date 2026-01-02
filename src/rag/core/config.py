@@ -78,6 +78,12 @@ class Settings(BaseSettings):
     claude_temperature: float = 0.7
     claude_max_tokens: int = 1024
     
+    # ============ xAI Grok Settings ============
+    xai_api_key: str = Field(default="")
+    grok_model: str = "grok-3"
+    grok_temperature: float = 0.7
+    grok_max_tokens: int = 1024
+
     # ============ Ollama (Local) Settings ============
     use_ollama: bool = False
     ollama_base_url: str = "http://localhost:11434"
@@ -111,6 +117,28 @@ class Settings(BaseSettings):
     # ============ Logging Settings ============
     log_level: str = "INFO"
     log_format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+    # ============ Rate Limiting Settings ============
+    # Redis URL for distributed rate limit storage
+    redis_url: str = Field(default="redis://localhost:6379/0")
+
+    # Storage backend: "redis" or "memory"
+    rate_limit_storage: str = Field(default="memory")
+
+    # Chat endpoint limits (per user)
+    rate_limit_chat_requests: int = Field(default=10)
+    rate_limit_chat_window_minutes: int = Field(default=1)
+
+    # Upload endpoint limits (per user)
+    rate_limit_upload_requests: int = Field(default=2)
+    rate_limit_upload_window_minutes: int = Field(default=10)
+
+    # Auth endpoint limits (per IP)
+    rate_limit_auth_requests: int = Field(default=5)
+    rate_limit_auth_window_minutes: int = Field(default=1)
+
+    # Global rate limiting toggle
+    rate_limit_enabled: bool = Field(default=True)
 
 
 # Singleton instance

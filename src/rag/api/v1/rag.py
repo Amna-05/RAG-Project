@@ -7,10 +7,11 @@ Protected endpoints - all require authentication.
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, BackgroundTasks, Query
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, BackgroundTasks, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from rag.core.database import get_db
+from rag.core.rate_limiter import limiter, get_user_key
 from rag.api.deps import get_current_user
 from rag.models.user import User
 from rag.schemas.document import (
@@ -27,7 +28,9 @@ router = APIRouter(prefix="/rag", tags=["RAG"])
 
 
 @router.post("/upload", response_model=DocumentUploadResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("2/10minutes", key_func=get_user_key)
 async def upload_document(
+    request: Request,
     file: UploadFile = File(...),
     background_tasks: BackgroundTasks = BackgroundTasks(),
     current_user: User = Depends(get_current_user),
@@ -216,8 +219,10 @@ async def delete_document(
 
 
 @router.post("/chat", response_model=ChatResponse)
+@limiter.limit("10/minute", key_func=get_user_key)
 async def chat(
-    request: ChatRequest,
+    request: Request,
+    chat_request: ChatRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -284,8 +289,8 @@ async def chat(
         result = await rag_service.query_documents(
             db,
             current_user.id,
-            request.message,
-            session_id=request.session_id
+            chat_request.message,
+            session_id=chat_request.session_id
         )
         
         return result

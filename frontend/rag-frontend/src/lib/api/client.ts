@@ -20,6 +20,13 @@ apiClient.interceptors.request.use(
   }
 );
 
+// Rate limit error interface
+interface RateLimitError {
+  detail: string;
+  retry_after?: number;
+  error_code?: string;
+}
+
 // Response interceptor
 apiClient.interceptors.response.use(
   (response) => {
@@ -29,6 +36,37 @@ apiClient.interceptors.response.use(
     const originalRequest = error.config as InternalAxiosRequestConfig & {
       _retry?: boolean;
     };
+
+    // Handle rate limiting (429 Too Many Requests)
+    if (error.response?.status === 429) {
+      const rateLimitError = error.response.data as RateLimitError;
+      const retryAfter = rateLimitError.retry_after ||
+                         parseInt(error.response.headers['retry-after'] || '60', 10);
+
+      // Create a user-friendly error with retry information
+      const rateLimitMessage = `Rate limit exceeded. Please try again in ${retryAfter} seconds.`;
+
+      // Dispatch custom event for UI components to handle
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('rate-limit-exceeded', {
+          detail: {
+            retryAfter,
+            message: rateLimitMessage,
+            endpoint: originalRequest.url
+          }
+        }));
+      }
+
+      // Enhance error with rate limit info
+      const enhancedError = new Error(rateLimitMessage) as Error & {
+        retryAfter: number;
+        isRateLimitError: boolean;
+      };
+      enhancedError.retryAfter = retryAfter;
+      enhancedError.isRateLimitError = true;
+
+      return Promise.reject(enhancedError);
+    }
 
     // If 401 and not already retried, try refresh
     if (error.response?.status === 401 && !originalRequest._retry) {
@@ -66,9 +104,43 @@ apiClient.interceptors.response.use(
 
 // Helper function to handle API errors
 export function getErrorMessage(error: unknown): string {
+  // Check for rate limit errors first
+  if (error && typeof error === 'object' && 'isRateLimitError' in error) {
+    return (error as Error).message;
+  }
+
   if (axios.isAxiosError(error)) {
     const axiosError = error as AxiosError<{ detail: string }>;
+
+    // Handle rate limit response
+    if (axiosError.response?.status === 429) {
+      const retryAfter = axiosError.response.headers['retry-after'] || '60';
+      return `Rate limit exceeded. Please try again in ${retryAfter} seconds.`;
+    }
+
     return axiosError.response?.data?.detail || error.message;
   }
   return "An unexpected error occurred";
+}
+
+// Helper to check if error is a rate limit error
+export function isRateLimitError(error: unknown): boolean {
+  if (error && typeof error === 'object' && 'isRateLimitError' in error) {
+    return true;
+  }
+  if (axios.isAxiosError(error) && error.response?.status === 429) {
+    return true;
+  }
+  return false;
+}
+
+// Get retry-after time from rate limit error
+export function getRetryAfter(error: unknown): number {
+  if (error && typeof error === 'object' && 'retryAfter' in error) {
+    return (error as { retryAfter: number }).retryAfter;
+  }
+  if (axios.isAxiosError(error) && error.response?.status === 429) {
+    return parseInt(error.response.headers['retry-after'] || '60', 10);
+  }
+  return 60; // Default 60 seconds
 }

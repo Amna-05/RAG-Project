@@ -21,6 +21,8 @@ import time
 
 from rag.core.config import get_settings
 from rag.core.database import init_db, close_db
+from rag.core.rate_limiter import limiter, rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from rag.api.v1 import auth
 
 # Import other routers as we create them
@@ -95,6 +97,13 @@ app = FastAPI(
     redoc_url="/redoc",  # ReDoc
     openapi_url="/openapi.json",
 )
+
+# ============ Rate Limiting Setup ============
+# Register limiter state on app (required by SlowAPI)
+app.state.limiter = limiter
+
+# Register rate limit exceeded exception handler
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
 
 # ============ CORS Middleware ============

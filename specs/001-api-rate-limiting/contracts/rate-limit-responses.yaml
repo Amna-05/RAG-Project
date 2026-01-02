@@ -1,0 +1,115 @@
+# OpenAPI 3.1 Schema: Rate Limiting Responses
+# Feature: 001-api-rate-limiting
+
+openapi: 3.1.0
+info:
+  title: RAG API - Rate Limiting
+  version: 1.0.0
+  description: Rate limiting response schemas and headers
+
+components:
+  headers:
+    X-RateLimit-Limit:
+      description: Maximum number of requests allowed in the current window
+      schema:
+        type: integer
+        example: 10
+
+    X-RateLimit-Remaining:
+      description: Number of requests remaining in the current window
+      schema:
+        type: integer
+        example: 7
+
+    X-RateLimit-Reset:
+      description: Unix timestamp when the rate limit window resets
+      schema:
+        type: integer
+        example: 1704110460
+
+    Retry-After:
+      description: Seconds until the client can retry (only on 429)
+      schema:
+        type: integer
+        example: 45
+
+  schemas:
+    RateLimitExceeded:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Human-readable error message
+          example: "Rate limit exceeded. Try again in 45 seconds."
+        retry_after:
+          type: integer
+          description: Seconds until retry is allowed
+          example: 45
+        limit:
+          type: integer
+          description: The rate limit that was exceeded
+          example: 10
+        window:
+          type: string
+          description: The time window for the limit
+          example: "1 minute"
+
+  responses:
+    RateLimitExceeded:
+      description: Rate limit exceeded
+      headers:
+        X-RateLimit-Limit:
+          $ref: '#/components/headers/X-RateLimit-Limit'
+        X-RateLimit-Remaining:
+          $ref: '#/components/headers/X-RateLimit-Remaining'
+        X-RateLimit-Reset:
+          $ref: '#/components/headers/X-RateLimit-Reset'
+        Retry-After:
+          $ref: '#/components/headers/Retry-After'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RateLimitExceeded'
+          example:
+            detail: "Rate limit exceeded. Try again in 45 seconds."
+            retry_after: 45
+            limit: 10
+            window: "1 minute"
+
+# Rate Limit Configurations by Endpoint Category
+x-rate-limits:
+  chat:
+    description: Chat/LLM query endpoints
+    endpoints:
+      - POST /api/v1/rag/chat
+    limit: 10
+    window: 60  # seconds
+    scope: per_user
+
+  upload:
+    description: Document upload endpoints
+    endpoints:
+      - POST /api/v1/rag/upload
+    limit: 2
+    window: 600  # 10 minutes
+    scope: per_user
+
+  auth:
+    description: Authentication endpoints
+    endpoints:
+      - POST /api/v1/auth/login
+      - POST /api/v1/auth/register
+      - POST /api/v1/auth/refresh
+    limit: 5
+    window: 60  # seconds
+    scope: per_ip
+
+# Endpoints that are NOT rate-limited
+x-excluded-endpoints:
+  - GET /health
+  - GET /docs
+  - GET /redoc
+  - GET /openapi.json
+  - OPTIONS /*  # CORS preflight

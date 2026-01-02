@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from rag.core.database import get_db
+from rag.core.rate_limiter import limiter, get_remote_address
 from rag.api.deps import get_current_user, get_current_user_optional
 from rag.models.user import User
 from rag.schemas.user import UserCreate, UserResponse
@@ -61,7 +62,9 @@ def clear_auth_cookies(response: Response):
     response.delete_cookie(key="refresh_token", path="/")
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("5/minute", key_func=get_remote_address)
 async def register(
+    request: Request,
     user_data: UserCreate,
     response: Response,
     db: AsyncSession = Depends(get_db)
@@ -84,9 +87,10 @@ async def register(
 
 
 @router.post("/login", response_model=UserResponse)
+@limiter.limit("5/minute", key_func=get_remote_address)
 async def login(
-    credentials: LoginRequest,
     request: Request,
+    credentials: LoginRequest,
     response: Response,
     db: AsyncSession = Depends(get_db)
 ):
@@ -156,6 +160,7 @@ async def logout(
 
 
 @router.post("/refresh")
+@limiter.limit("5/minute", key_func=get_remote_address)
 async def refresh_token(
     request: Request,
     response: Response,
