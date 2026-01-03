@@ -1,0 +1,6 @@
+# Railway.app deployment configuration
+# RAG Backend + PostgreSQL (no Redis needed - uses in-memory rate limiting)
+
+[build]
+builder = "dockerfile"
+dockerfile = "Dockerfile"
