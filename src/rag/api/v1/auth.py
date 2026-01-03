@@ -327,3 +327,73 @@ async def change_password(
         clear_auth_cookies(response)
     
     return {"message": "Password changed successfully"}
+
+@router.post("/forgot-password")
+@limiter.limit("3/hour", key_func=get_remote_address)
+async def forgot_password(
+    request: Request,
+    email: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Request password reset email.
+
+    **Flow:**
+    1. User submits email
+    2. We send reset email (if user exists)
+    3. Return generic response (security: don't reveal if email exists)
+
+    **Rate limit:** 3 per hour per IP (prevent abuse)
+
+    **Frontend usage:**
+    ```javascript
+    const response = await fetch('/api/v1/auth/forgot-password', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({email: 'user@example.com'})
+    });
+
+    // Redirect to email confirmation page
+    ```
+    """
+    from sqlalchemy import select
+    from rag.services.email_service import send_password_reset_email
+    from rag.core.logging import get_logger
+
+    logger = get_logger(__name__)
+
+    # Find user by email (safely - don't reveal if user exists)
+    result = await db.execute(
+        select(User).where(User.email == email)
+    )
+    user = result.scalar_one_or_none()
+
+    # Generic response (same whether user exists or not)
+    response_msg = "If an account exists with this email, we've sent a password reset link."
+
+    if user:
+        # Create reset link (in production, add token validation)
+        # For now, simple link to frontend with email
+        reset_link = f"{settings.frontend_url}/reset-password?email={email}"
+
+        # Send email
+        success = await send_password_reset_email(
+            email=user.email,
+            reset_link=reset_link,
+            username=user.username
+        )
+
+        if success:
+            logger.info(
+                "password_reset_requested",
+                user_id=str(user.id),
+                email=user.email
+            )
+        else:
+            logger.error(
+                "password_reset_email_failed",
+                user_id=str(user.id),
+                email=user.email
+            )
+
+    return {"message": response_msg}

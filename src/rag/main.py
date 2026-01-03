@@ -22,6 +22,7 @@ import time
 from rag.core.config import get_settings
 from rag.core.database import init_db, close_db
 from rag.core.rate_limiter import limiter, rate_limit_exceeded_handler
+from rag.core.logging import configure_logging, LoggingMiddleware
 from slowapi.errors import RateLimitExceeded
 from rag.api.v1 import auth
 

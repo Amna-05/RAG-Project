@@ -113,7 +113,15 @@ class Settings(BaseSettings):
     default_top_k: int = 5
     min_relevance_score: float = 0.5
     enable_hybrid_search: bool = False
-    
+
+    # ============ Email Settings (SMTP) ============
+    resend_api_key: str = Field(default="")
+    smtp_from_email: str = Field(default="noreply@example.com")
+    smtp_from_name: str = Field(default="RAG Application")
+
+    # ============ Frontend Settings ============
+    frontend_url: str = Field(default="http://localhost:3000")
+
     # ============ Logging Settings ============
     log_level: str = "INFO"
     log_format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
