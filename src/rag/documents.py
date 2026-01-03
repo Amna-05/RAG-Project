@@ -153,106 +153,164 @@ def read_document(file_path: Union[str, Path]) -> Optional[Dict[str, Any]]:
 
 
 def recursive_text_chunker(
-    text: str, 
-    chunk_size: int = 1000, 
+    text: str,
+    chunk_size: int = 1000,
     overlap: int = 200,
     separators: List[str] = None
-) -> List[str]:
+) -> List[Dict[str, Any]]:
     """
     Advanced chunking similar to LangChain's RecursiveCharacterTextSplitter.
     Tries to split on different separators in order of preference.
+
+    Returns list of dicts with 'text', 'start_char', 'end_char' for deterministic
+    position tracking.
     """
     if separators is None:
         separators = ["\n\n", "\n", ". ", " ", ""]
-    
+
     if len(text) <= chunk_size:
-        return [text]
-    
+        return [{"text": text, "start_char": 0, "end_char": len(text)}]
+
     chunks = []
-    
+
     # Try each separator in order
     for separator in separators:
+        if not separator:  # Skip empty separator
+            continue
         if separator in text:
             parts = text.split(separator)
             current_chunk = ""
-            
-            for part in parts:
+            current_start = 0
+            current_pos = 0
+
+            for part_idx, part in enumerate(parts):
+                # Calculate position before adding
+                if part_idx > 0:
+                    current_pos += len(separator)
+
                 # If adding this part would exceed chunk size
-                if len(current_chunk) + len(part) + len(separator) > chunk_size:
+                if len(current_chunk) + len(part) + (len(separator) if part_idx > 0 else 0) > chunk_size:
                     if current_chunk:
-                        chunks.append(current_chunk.strip())
+                        chunk_end = current_pos - len(separator) if part_idx > 0 else current_pos
+                        chunks.append({
+                            "text": current_chunk,
+                            "start_char": current_start,
+                            "end_char": chunk_end
+                        })
                         # Handle overlap
                         if overlap > 0 and len(current_chunk) > overlap:
-                            current_chunk = current_chunk[-overlap:] + separator + part
+                            # Start new chunk with overlap
+                            current_chunk = current_chunk[-overlap:] + (separator if part_idx > 0 else "") + part
+                            current_start = chunk_end - overlap
                         else:
                             current_chunk = part
+                            current_start = current_pos
                     else:
                         # Part itself is too large, recursively split it
                         if len(part) > chunk_size:
+                            part_start = current_pos
                             sub_chunks = recursive_text_chunker(
                                 part, chunk_size, overlap, separators[1:]
                             )
-                            chunks.extend(sub_chunks)
+                            for sub_chunk in sub_chunks:
+                                chunks.append({
+                                    "text": sub_chunk["text"],
+                                    "start_char": part_start + sub_chunk["start_char"],
+                                    "end_char": part_start + sub_chunk["end_char"]
+                                })
                             current_chunk = ""
                         else:
                             current_chunk = part
+                            current_start = current_pos
                 else:
                     if current_chunk:
-                        current_chunk += separator + part
+                        current_chunk += (separator if part_idx > 0 else "") + part
                     else:
                         current_chunk = part
-            
+
+                current_pos += len(part)
+
             # Add the last chunk
-            if current_chunk.strip():
-                chunks.append(current_chunk.strip())
-            
-            return [chunk for chunk in chunks if chunk.strip()]
-    
-    # Fallback: split by character count
+            if current_chunk:
+                chunks.append({
+                    "text": current_chunk,
+                    "start_char": current_start,
+                    "end_char": current_pos
+                })
+
+            # Filter out empty chunks and return
+            return [c for c in chunks if c["text"].strip()]
+
+    # Fallback: split by character count (deterministic)
     chunks = []
     start = 0
     while start < len(text):
-        end = start + chunk_size
-        chunk = text[start:end]
-        chunks.append(chunk)
-        start = end - overlap
-    
+        end = min(start + chunk_size, len(text))
+        chunks.append({
+            "text": text[start:end],
+            "start_char": start,
+            "end_char": end
+        })
+        start = end - overlap if overlap > 0 else end
+
     return chunks
 
 
-def create_document_chunks(document_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+def create_document_chunks(
+    document_data: Dict[str, Any],
+    chunk_size: Optional[int] = None,
+    chunk_overlap: Optional[int] = None
+) -> List[Dict[str, Any]]:
     """
     Create chunks from document data using configurable settings.
+
+    Args:
+        document_data: Document content and metadata
+        chunk_size: Override default chunk size (uses settings if None)
+        chunk_overlap: Override default chunk overlap (uses settings if None)
     """
     settings = get_settings()
-    
+
+    # Use provided values or fall back to settings
+    if chunk_size is None:
+        chunk_size = settings.chunk_size
+    if chunk_overlap is None:
+        chunk_overlap = settings.chunk_overlap
+
     content = document_data['content']
-    chunks = recursive_text_chunker(
+    chunk_dicts = recursive_text_chunker(
         content,
-        chunk_size=settings.chunk_size,
-        overlap=settings.chunk_overlap
+        chunk_size=chunk_size,
+        overlap=chunk_overlap
     )
-    
-    # Create structured chunk objects
+
+    # Create structured chunk objects with position tracking
     chunk_objects = []
-    for i, chunk_text in enumerate(chunks):
+    for i, chunk_dict in enumerate(chunk_dicts):
         chunk_obj = {
             'id': f"{document_data['file_name']}_{i}",
-            'text': chunk_text,
+            'text': chunk_dict['text'],
             'chunk_index': i,
+            'start_char': chunk_dict['start_char'],  # Position in original text
+            'end_char': chunk_dict['end_char'],      # Position in original text
             'source': document_data['source'],
             'file_name': document_data['file_name'],
             'file_type': document_data['file_type'],
-            'char_count': len(chunk_text),
+            'char_count': len(chunk_dict['text']),
             'metadata': {
                 **document_data['metadata'],
                 'chunk_index': i,
-                'total_chunks': len(chunks)
+                'total_chunks': len(chunk_dicts),
+                'start_char': chunk_dict['start_char'],
+                'end_char': chunk_dict['end_char']
             }
         }
         chunk_objects.append(chunk_obj)
-    
-    logger.info(f"✅ Created {len(chunk_objects)} chunks from {document_data['file_name']}")
+
+    logger.info(
+        f"✅ Created {len(chunk_objects)} chunks from {document_data['file_name']} "
+        f"(size={chunk_size}, overlap={chunk_overlap})"
+    )
     return chunk_objects
 
 
