@@ -172,18 +172,21 @@ class EmbeddingGenerator:
         """Process a batch of texts efficiently."""
         # Clean texts
         clean_texts = [self._clean_text(text) for text in texts]
-        
+
         # Separate cached from uncached
         embeddings = []
         uncached_texts = []
         uncached_indices = []
         cache_hits = 0
-        
+
+        # Check for empty texts
+        empty_count = 0
         for i, clean_text in enumerate(clean_texts):
             if not clean_text:
                 embeddings.append(None)
+                empty_count += 1
                 continue
-            
+
             # Check cache
             if self.cache:
                 cached = self.cache.get(clean_text, self.model_name)
@@ -191,27 +194,53 @@ class EmbeddingGenerator:
                     embeddings.append(cached)
                     cache_hits += 1
                     continue
-            
+
             # Needs embedding
             embeddings.append(None)  # Placeholder
             uncached_texts.append(clean_text)
             uncached_indices.append(i)
-        
+
+        # Alert if most texts are empty
+        if empty_count > len(clean_texts) * 0.5:
+            logger.error(
+                f"❌ WARNING: {empty_count}/{len(clean_texts)} chunks are empty!\n"
+                f"   Your document has very little extractable text.\n"
+                f"   Possible reasons:\n"
+                f"   - PDF is scanned/image-based (OCR disabled)\n"
+                f"   - Document extraction failed\n"
+                f"   - File is corrupted or encrypted"
+            )
+
         # Batch process uncached texts
         if uncached_texts and self._load_model():
             try:
+                logger.debug(f"🔄 Encoding {len(uncached_texts)} texts...")
                 batch_embeddings = self.model.encode(uncached_texts)
-                
+
+                # Verify embeddings were generated
+                if len(batch_embeddings) == 0:
+                    logger.error("❌ Model returned 0 embeddings! Model might not be working properly.")
+                    return embeddings, cache_hits
+
                 # Update results and cache
                 for idx, embedding in zip(uncached_indices, batch_embeddings):
                     embeddings[idx] = embedding
-                    
+
                     if self.cache:
                         self.cache.set(clean_texts[idx], self.model_name, embedding)
-                        
+
             except Exception as e:
-                logger.error(f"❌ Batch embedding failed: {e}")
-        
+                logger.error(
+                    f"❌ Batch embedding FAILED: {str(e)}\n"
+                    f"   Model: {self.model_name}\n"
+                    f"   Texts: {len(uncached_texts)}\n"
+                    f"   This usually means:\n"
+                    f"   1. Model failed to load or initialize\n"
+                    f"   2. GPU/CUDA issue (if using GPU)\n"
+                    f"   3. Input texts are incompatible\n"
+                    f"   4. Not enough system resources"
+                )
+
         return embeddings, cache_hits
     
     def embed_documents(self, documents: List[Dict[str, Any]]) -> List[Dict[str, Any]]:

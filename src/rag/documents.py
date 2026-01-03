@@ -39,27 +39,55 @@ def read_text_file(file_path: Path) -> Optional[str]:
 
 
 def read_pdf_file(file_path: Path) -> Optional[str]:
-    """Read PDF file using PyPDF2 (lightweight alternative to LangChain)."""
+    """
+    Read PDF file using PyPDF2.
+
+    ⚠️ WARNING: Scanned/image-based PDFs won't work without OCR!
+    If you're getting very little text (< 100 chars from multi-page PDF):
+    1. Your PDF is likely scanned/image-based
+    2. Set ENABLE_OCR=true in .env to use Tesseract OCR
+    3. Or convert PDF to text-based format first
+    """
+    settings = get_settings()
+
     if not PyPDF2:
         logger.error("❌ PyPDF2 not installed. Run: uv add PyPDF2")
         return None
-    
+
     try:
         content = ""
         with open(file_path, 'rb') as file:
             pdf_reader = PyPDF2.PdfReader(file)
-            
+            num_pages = len(pdf_reader.pages)
+
             for page_num, page in enumerate(pdf_reader.pages):
                 try:
-                     page_text = page.extract_text()
-                     content += page_text + "\n\n"  # Remove the "--- Page X ---" markers
+                    page_text = page.extract_text()
+                    content += page_text + "\n\n"
                 except Exception as page_error:
-                    logger.warning(f"⚠️ Failed to read page {page_num + 1}: {page_error}")
+                    logger.warning(f"⚠️ Failed to extract text from page {page_num + 1}: {page_error}")
                     continue
-        
-        logger.info(f"✅ Read PDF: {file_path.name} ({len(pdf_reader.pages)} pages, {len(content)} chars)")
-        return content
-        
+
+        # Check if extraction was successful
+        extracted_chars = len(content.strip())
+
+        # Red flag: Too little text extracted from multi-page PDF
+        if num_pages > 3 and extracted_chars < 100:
+            logger.warning(
+                f"⚠️ ALERT: Only {extracted_chars} chars extracted from {num_pages} pages!\n"
+                f"   Your PDF is likely IMAGE-BASED (scanned/screenshot).\n"
+                f"   Solutions:\n"
+                f"   1. Set ENABLE_OCR=true in .env (requires Tesseract OCR)\n"
+                f"   2. Convert PDF to text-based format\n"
+                f"   3. Use a PDF that has selectable text"
+            )
+
+        logger.info(
+            f"✅ Read PDF: {file_path.name} ({num_pages} pages, {extracted_chars} chars)\n"
+            f"   {'⚠️ WARNING: Very little text extracted!' if extracted_chars < 100 else '✅ Good text extraction'}"
+        )
+        return content if content.strip() else None
+
     except Exception as e:
         logger.error(f"❌ Failed to read PDF {file_path}: {e}")
         return None
@@ -167,6 +195,25 @@ def recursive_text_chunker(
     """
     if separators is None:
         separators = ["\n\n", "\n", ". ", " ", ""]
+
+    # Validate text content
+    text_length = len(text.strip())
+
+    if text_length < 50:
+        logger.error(
+            f"❌ CRITICAL: Text too short ({text_length} chars)!\n"
+            f"   This will fail embedding generation.\n"
+            f"   Likely causes:\n"
+            f"   1. PDF is scanned/image-based (no text extraction)\n"
+            f"   2. File is mostly empty or contains no readable text\n"
+            f"   3. Text extraction failed silently\n"
+            f"   Solutions:\n"
+            f"   - Enable OCR if PDF is scanned (set ENABLE_OCR=true)\n"
+            f"   - Use a text-based PDF or convert first\n"
+            f"   - Check file is not corrupted/encrypted"
+        )
+        # Return empty list - this will cause proper error handling downstream
+        return []
 
     if len(text) <= chunk_size:
         return [{"text": text, "start_char": 0, "end_char": len(text)}]
