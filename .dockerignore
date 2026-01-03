@@ -1,0 +1,55 @@
+# Git
+.git
+.gitignore
+.github
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.pytest_cache/
+.coverage
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Project
+node_modules
+.next
+build
+dist
+.env
+.env.local
+frontend/rag-frontend/.next
+
+# Documentation
+docs
+*.md
+
+# Data (don't copy upload data into image)
+data/uploads/*
+data/embeddings_cache/*
+logs/*
+
+# Testing
+tests
+.pytest_cache
+htmlcov
+
+# Other
+.speciify
+.claude
+specs

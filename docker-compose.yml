@@ -1,0 +1,118 @@
+version: '3.9'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: rag_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: rag_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rag_network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: rag_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rag_network
+
+  # FastAPI Backend
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rag_backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # Database
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/rag_db
+      
+      # Redis
+      REDIS_URL: redis://redis:6379/0
+      RATE_LIMIT_STORAGE: redis
+      
+      # API
+      APP_NAME: RAG System
+      DEBUG: "false"
+      LOG_LEVEL: INFO
+      LOG_FORMAT: json
+      
+      # Rate Limiting
+      RATE_LIMIT_ENABLED: "true"
+      RATE_LIMIT_CHAT_REQUESTS: 10
+      RATE_LIMIT_CHAT_WINDOW_MINUTES: 1
+      RATE_LIMIT_UPLOAD_REQUESTS: 2
+      RATE_LIMIT_UPLOAD_WINDOW_MINUTES: 10
+      RATE_LIMIT_AUTH_REQUESTS: 5
+      RATE_LIMIT_AUTH_WINDOW_MINUTES: 1
+      
+      # JWT
+      JWT_SECRET_KEY: dev-secret-key-change-in-production
+      JWT_REFRESH_SECRET_KEY: dev-refresh-secret-key-change-in-production
+      
+      # CORS
+      CORS_ORIGINS: '["http://localhost:3000", "http://localhost:8000"]'
+      
+      # LLM Providers (configure at least one)
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      XAI_API_KEY: ${XAI_API_KEY:-}
+      
+      # Pinecone Vector DB
+      PINECONE_API_KEY: ${PINECONE_API_KEY:-}
+      PINECONE_INDEX_NAME: rag-index
+      
+      # Email (Resend)
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      SMTP_FROM_EMAIL: noreply@localhost
+      SMTP_FROM_NAME: RAG App
+      FRONTEND_URL: http://localhost:3000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    networks:
+      - rag_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  rag_network:
+    driver: bridge
