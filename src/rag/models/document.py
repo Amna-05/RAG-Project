@@ -27,9 +27,11 @@ class Document(Base):
     id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
     user_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     
-    # File info
+    # File name
     filename = Column(String(255), nullable=False)
-    original_filename = Column(String(255), nullable=False)  # User's original name
+    original_filename = Column(String(255), nullable=False)  
+    # File info  
+
     file_path = Column(String(512), nullable=False)  # Where file is stored
     file_size = Column(Integer, nullable=False)  # Bytes
     file_type = Column(String(50), nullable=False)  # pdf, docx, txt
@@ -41,7 +43,7 @@ class Document(Base):
     # Metadata
     num_chunks = Column(Integer, default=0)
     total_tokens = Column(Integer, default=0)
-    
+        
     # Timestamps
     uploaded_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     processed_at = Column(DateTime, nullable=True)
@@ -49,6 +51,9 @@ class Document(Base):
     # Soft delete
     is_deleted = Column(Boolean, default=False)
     deleted_at = Column(DateTime, nullable=True)
+    
+    # BM25 index status for hybrid search
+    bm25_indexed = Column(Boolean, default=False)
     
     # Relationships
     user = relationship("User", back_populates="documents")
@@ -127,3 +132,4 @@ class ChatMessage(Base):
     
     def __repr__(self):
         return f"<ChatMessage {self.role}: {self.content[:50]}...>"
+    

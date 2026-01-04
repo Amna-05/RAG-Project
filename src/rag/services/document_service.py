@@ -23,7 +23,7 @@ from rag.models.user import User
 from rag.models.document import DocumentMetadata
 from rag.documents import process_document  #  existing code
 from rag.embeddings import embed_document_chunks  # existing code
-from rag.core.config import get_settings
+from rag.core.config import get_settings  # existing code
 from rag.vectorstore import store_embedded_documents  # existing code
 
 settings = get_settings()

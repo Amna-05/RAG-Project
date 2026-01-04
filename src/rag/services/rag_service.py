@@ -20,12 +20,16 @@ from rag.embeddings import embed_document_chunks
 from rag.vectorstore import store_embedded_documents, search_documents_by_text, delete_document
 from rag.llm_integration import ask_question_detailed
 from rag.services.llm_service import get_llm_service
+from rag.services.search_service import create_search_service
 
 #llm_service.py
 from rag.services.llm_service import generate_answer
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
+
+# Initialize hybrid search service (50/50 BM25 + semantic)
+_search_service = create_search_service(bm25_weight=0.5, semantic_weight=0.5, top_k=5)
 
 
 class DocumentProcessingError(Exception):

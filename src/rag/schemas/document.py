@@ -95,3 +95,5 @@ class ChatHistoryResponse(BaseModel):
     session_id: str
     messages: List[dict]
     total_messages: int
+
+    
