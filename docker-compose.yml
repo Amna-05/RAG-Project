@@ -37,6 +37,32 @@ services:
     networks:
       - rag_network
 
+  # Next.js Frontend
+  frontend:
+    build:
+      context: ./frontend/rag-frontend
+      dockerfile: Dockerfile
+    container_name: rag_frontend
+    environment:
+      # API Configuration for frontend
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend/rag-frontend:/app
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - rag_network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
   # FastAPI Backend
   backend:
     build:
