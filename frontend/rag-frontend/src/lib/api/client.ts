@@ -106,7 +106,8 @@ apiClient.interceptors.response.use(
 export function getErrorMessage(error: unknown): string {
   // Check for rate limit errors first
   if (error && typeof error === 'object' && 'isRateLimitError' in error) {
-    return (error as Error).message;
+    const rateLimitError = error as { isRateLimitError: unknown; message?: string };
+    return rateLimitError.message || 'Rate limit exceeded. Please try again later.';
   }
 
   if (axios.isAxiosError(error)) {

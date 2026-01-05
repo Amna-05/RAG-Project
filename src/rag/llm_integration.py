@@ -33,7 +33,7 @@ class RAGWithGemini:
         
         # Configure Gemini
         genai.configure(api_key=settings.google_api_key)
-        self.model = genai.GenerativeModel('gemini-2.0-flash')
+        self.model = genai.GenerativeModel(settings.gemini_model)
         
         logger.info("🤖 Initialized Gemini LLM for RAG")
     

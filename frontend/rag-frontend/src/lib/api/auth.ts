@@ -1,42 +1,43 @@
 import { apiClient } from "./client";
-import type { 
-  LoginRequest, 
-  RegisterRequest, 
-  AuthResponse, 
-  User 
+import type {
+  LoginRequest,
+  RegisterRequest,
+  User
 } from "@/types/auth";
 
 /**
  * Auth API endpoints
- * 
+ *
  * All functions use apiClient which:
  * - Automatically includes cookies (HttpOnly tokens)
  * - Handles token refresh via interceptors
  * - Throws errors for failed requests
+ *
+ * Note: Backend sets auth cookies directly, so we only receive User data
  */
 
 /**
  * Login user
- * 
+ *
  * @param credentials - Email and password
- * @returns User data and access token
- * 
+ * @returns User data (tokens in httpOnly cookies)
+ *
  * Backend sets HttpOnly cookie automatically
  */
-export async function login(credentials: LoginRequest): Promise<AuthResponse> {
-  const response = await apiClient.post<AuthResponse>("/auth/login", credentials);
-  return response.data;
+export async function login(credentials: LoginRequest): Promise<{ user: User }> {
+  const user = await apiClient.post<User>("/auth/login", credentials);
+  return { user: user.data };
 }
 
 /**
  * Register new user
- * 
+ *
  * @param data - User registration data
- * @returns User data and access token
+ * @returns User data (tokens in httpOnly cookies)
  */
-export async function register(data: RegisterRequest): Promise<AuthResponse> {
-  const response = await apiClient.post<AuthResponse>("/auth/register", data);
-  return response.data;
+export async function register(data: RegisterRequest): Promise<{ user: User }> {
+  const user = await apiClient.post<User>("/auth/register", data);
+  return { user: user.data };
 }
 
 /**

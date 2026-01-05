@@ -25,7 +25,7 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 /**
  * Login form component
- * 
+ *
  * Features:
  * - React Hook Form for state management
  * - Zod validation
@@ -40,6 +40,7 @@ export function LoginForm() {
     register,
     handleSubmit,
     formState: { errors },
+    setError,
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
   });
@@ -48,9 +49,22 @@ export function LoginForm() {
     try {
       setIsLoading(true);
       await login(data);
-      // useAuth handles redirect and toast
-    } catch (error) {
-      // Error already handled by useAuth hook
+      // Hook handles redirect and error handling
+    } catch (error: any) {
+      // Handle backend validation errors
+      const errorData = error.response?.data;
+
+      if (errorData?.detail) {
+        const detail = errorData.detail.toLowerCase();
+
+        if (detail.includes("invalid") || detail.includes("incorrect")) {
+          setError("password", {
+            type: "manual",
+            message: "Invalid email or password",
+          });
+        }
+      }
+
       setIsLoading(false);
     }
   };

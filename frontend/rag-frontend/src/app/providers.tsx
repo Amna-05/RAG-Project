@@ -3,14 +3,15 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 import { useState } from "react";
+import { ThemeProvider } from "@/lib/contexts/theme";
 
 /**
  * Application providers
- * 
+ *
  * Wraps the entire app with:
+ * - Theme provider (light/dark mode with localStorage persistence)
  * - React Query (server state management)
  * - Toast notifications
- * - Theme provider (future: dark mode)
  */
 export function Providers({ children }: { children: React.ReactNode }) {
   // Create QueryClient inside component to avoid sharing between requests
@@ -33,10 +34,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <QueryClientProvider client={queryClient}>
-      {children}
-      {/* Toast notifications - positioned top-right */}
-      <Toaster position="top-right" richColors closeButton />
-    </QueryClientProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        {children}
+        {/* Toast notifications - positioned top-right */}
+        <Toaster position="top-right" richColors closeButton />
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }

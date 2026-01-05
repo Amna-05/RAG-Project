@@ -11,10 +11,10 @@ interface AuthStore {
 
 /**
  * Simple auth store with localStorage persistence
- * 
+ *
  * KISS principle: Keep It Simple
  */
-export default const useAuthStore = create<AuthStore>()(
+const useAuthStore = create<AuthStore>()(
   persist(
     (set) => ({
       user: null,
@@ -35,3 +35,5 @@ export default const useAuthStore = create<AuthStore>()(
     }
   )
 );
+
+export default useAuthStore;

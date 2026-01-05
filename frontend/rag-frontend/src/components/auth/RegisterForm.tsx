@@ -44,6 +44,7 @@ export function RegisterForm() {
     register,
     handleSubmit,
     formState: { errors },
+    setError,
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
   });
@@ -54,7 +55,28 @@ export function RegisterForm() {
       // Remove confirmPassword before sending to API
       const { confirmPassword, ...registerData } = data;
       await registerUser(registerData);
-    } catch (error) {
+      // Hook handles redirect and error handling
+    } catch (error: any) {
+      // Handle backend validation errors
+      const errorData = error.response?.data;
+
+      if (errorData?.detail) {
+        // Parse backend error messages
+        const detail = errorData.detail.toLowerCase();
+
+        if (detail.includes("username") && detail.includes("exist")) {
+          setError("username", {
+            type: "manual",
+            message: "This username is already taken",
+          });
+        } else if (detail.includes("email") && detail.includes("exist")) {
+          setError("email", {
+            type: "manual",
+            message: "This email is already registered",
+          });
+        }
+      }
+
       setIsLoading(false);
     }
   };

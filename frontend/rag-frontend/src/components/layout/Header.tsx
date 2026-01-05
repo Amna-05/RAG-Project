@@ -13,6 +13,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/lib/hooks/useAuth";
 import Link from "next/link";
+import { ThemeToggle } from "./ThemeToggle";
 
 /**
  * Dashboard Header Component
@@ -62,6 +63,9 @@ export function Header({ onMenuClick }: HeaderProps) {
 
         {/* Spacer */}
         <div className="flex-1" />
+
+        {/* Theme Toggle */}
+        <ThemeToggle />
 
         {/* User menu */}
         <DropdownMenu>

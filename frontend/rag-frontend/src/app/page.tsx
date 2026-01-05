@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { FileText, MessageSquare, Zap, ArrowRight } from "lucide-react";
 import Link from "next/link";
-import useAuthStore  from "@/lib/stores/authStore";
+import useAuthStore from "@/lib/store/authStore";
+import { ThemeToggle } from "@/components/layout/ThemeToggle";
 /**
  * Landing Page
  * 
@@ -48,7 +49,8 @@ export default function LandingPage() {
               </div>
               <span className="font-bold text-xl">RAG System</span>
             </div>
-            <div className="flex gap-4">
+            <div className="flex gap-4 items-center">
+              <ThemeToggle />
               <Link href="/login">
                 <Button variant="ghost">Log in</Button>
               </Link>
