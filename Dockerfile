@@ -64,5 +64,8 @@ EXPOSE 8000
 # Set Python to run in unbuffered mode for real-time logging
 ENV PYTHONUNBUFFERED=1
 
+# Add src to Python path so 'rag' module can be found
+ENV PYTHONPATH=/app/src
+
 # Start Uvicorn (migrations run via railway.toml pre-start hook)
 CMD ["uvicorn", "rag.main:app", "--host", "0.0.0.0", "--port", "8000"]
