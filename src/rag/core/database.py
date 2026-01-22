@@ -18,15 +18,14 @@ from rag.models.base import Base
 settings = get_settings()
 logger = logging.getLogger(__name__)
 
-
-# Create async engine
+# Create async engine (database_url is auto-fixed in config.py)
 engine = create_async_engine(
     settings.database_url,
     echo=settings.db_echo,
     pool_size=settings.db_pool_size,
     max_overflow=settings.db_max_overflow,
     pool_timeout=settings.db_pool_timeout,
-    poolclass=NullPool if settings.debug else None,  # Disable pooling in debug
+    poolclass=NullPool if settings.debug else None,
 )
 
 # Create async session factory
@@ -41,7 +40,7 @@ AsyncSessionLocal = async_sessionmaker(
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """
     Dependency for getting async database sessions.
-    
+
     Usage in FastAPI:
         @app.get("/users")
         async def get_users(db: AsyncSession = Depends(get_db)):
@@ -66,18 +65,18 @@ async def init_db():
     """
     try:
         logger.info("🚀 Initializing database...")
-        
+
         # Import all models to register them with Base
         from rag.models.user import User
         from rag.models.token import RefreshToken
         from rag.models.document import Document, DocumentChunk, ChatMessage
-        
+
         async with engine.begin() as conn:
             # Create all tables
             await conn.run_sync(Base.metadata.create_all)
-        
+
         logger.info("✅ Database tables created successfully")
-        
+
     except Exception as e:
         logger.error(f"❌ Failed to initialize database: {e}")
         raise

@@ -32,6 +32,19 @@ class Settings(BaseSettings):
     db_max_overflow: int = 10
     db_pool_timeout: int = 30
     db_echo: bool = False
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def validate_database_url(cls, v: str) -> str:
+        """
+        Ensure database URL uses asyncpg driver for async support.
+        Converts postgresql:// to postgresql+asyncpg:// if needed.
+        """
+        if v and isinstance(v, str):
+            # If using sync postgresql driver, convert to async asyncpg
+            if v.startswith("postgresql://"):
+                v = v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return v
     
     # ============ JWT Settings ============
     jwt_secret_key: str = Field(default="change-this-secret-key")
