@@ -4,3 +4,7 @@
 [build]
 builder = "dockerfile"
 dockerfile = "Dockerfile"
+
+# Run database migrations before starting the app
+[[deploy.pre-start]]
+command = "alembic upgrade head"

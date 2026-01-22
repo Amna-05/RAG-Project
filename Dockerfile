@@ -64,5 +64,5 @@ EXPOSE 8000
 # Set Python to run in unbuffered mode for real-time logging
 ENV PYTHONUNBUFFERED=1
 
-# Run migrations and start server
-CMD ["sh", "-c", "alembic upgrade head && uvicorn rag.main:app --host 0.0.0.0 --port 8000"]
+# Start Uvicorn (migrations run via railway.toml pre-start hook)
+CMD ["uvicorn", "rag.main:app", "--host", "0.0.0.0", "--port", "8000"]
