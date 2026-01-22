@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import { FileText, Upload, X, Loader2, CheckCircle, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { apiClient } from "@/lib/api/client";
+import { apiClient, getErrorMessage, isRateLimitError } from "@/lib/api/client";
 
 interface Document {
   id: string;
@@ -89,13 +89,11 @@ export default function DocumentsPage() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await apiClient.post("/rag/upload", formData, {
+      await apiClient.post("/rag/upload", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
       });
-
-      const data = response.data;
 
       // Update document status
       setDocuments((prev) =>
@@ -106,13 +104,34 @@ export default function DocumentsPage() {
 
       toast.success(`${file.name} uploaded successfully!`);
     } catch (error) {
-      console.error("Upload error:", error);
+      // Get detailed error message
+      const errorMessage = getErrorMessage(error);
+      const isRateLimit = isRateLimitError(error);
+
+      // Log non-rate-limit errors to console
+      if (!isRateLimit) {
+        console.error("Upload error:", error);
+      }
+
+      // Update document status
       setDocuments((prev) =>
         prev.map((doc) =>
           doc.id === docId ? { ...doc, status: "failed" } : doc
         )
       );
-      toast.error("Failed to upload document");
+
+      // Show specific error messages
+      if (isRateLimit) {
+        toast.error(errorMessage, {
+          duration: 5000,
+          icon: "⏳",
+        });
+      } else {
+        toast.error(errorMessage, {
+          duration: 4000,
+          icon: "❌",
+        });
+      }
     } finally {
       setIsUploading(false);
     }

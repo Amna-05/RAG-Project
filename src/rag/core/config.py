@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     
     # ============ Security Settings ============
     cors_origins: List[str] = Field(
-        default=["http://localhost:3000", "http://localhost:8000"]
+        default=["http://localhost:3000", "http://localhost:3001", "http://localhost:8000"]
     )
     cors_credentials: bool = True
     cors_methods: List[str] = ["*"]

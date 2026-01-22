@@ -50,9 +50,9 @@ export function LoginForm() {
       setIsLoading(true);
       await login(data);
       // Hook handles redirect and error handling
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Handle backend validation errors
-      const errorData = error.response?.data;
+      const errorData = (error as { response?: { data?: { detail?: string } } })?.response?.data;
 
       if (errorData?.detail) {
         const detail = errorData.detail.toLowerCase();

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useCallback, useState } from "react";
+import { useRouter } from "next/navigation";
 import useAuthStore from "@/lib/store/authStore";
 import * as authApi from "@/lib/api/auth";
 import type { LoginRequest, RegisterRequest } from "@/types/auth";
@@ -10,7 +10,6 @@ import { toast } from "sonner";
  */
 export function useAuth() {
   const router = useRouter();
-  const pathname = usePathname();
   const { user, isAuthenticated, setUser, clearAuth } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -49,11 +48,12 @@ export function useAuth() {
         console.log('🟡 [Auth] Redirecting to dashboard...');
         // Use router.push for better navigation handling
         router.push('/dashboard');
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('🔴 [Auth] Login error:', error);
 
         // Check if it's a network error
-        if (!error.response) {
+        const errorWithResponse = error as { response?: { status?: number; data?: { detail?: string } }; message?: string };
+        if (!errorWithResponse.response) {
           console.error('Network error - backend might not be running');
           toast.error("Cannot connect to server. Is the backend running on localhost:8000?");
           setIsLoading(false);
@@ -61,12 +61,12 @@ export function useAuth() {
         }
 
         // Handle specific error statuses
-        if (error.response?.status === 401) {
+        if (errorWithResponse.response?.status === 401) {
           toast.error("Invalid email or password");
-        } else if (error.response?.status === 422) {
+        } else if (errorWithResponse.response?.status === 422) {
           toast.error("Invalid request format");
         } else {
-          const errorMessage = error.response?.data?.detail || error.message || "Login failed";
+          const errorMessage = errorWithResponse.response?.data?.detail || errorWithResponse.message || "Login failed";
           toast.error(errorMessage);
         }
 
@@ -112,11 +112,12 @@ export function useAuth() {
         console.log('🟡 [Auth] Redirecting to dashboard...');
         // Use router.push for better navigation handling
         router.push('/dashboard');
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('🔴 [Auth] Register error:', error);
 
         // Check if it's a network error
-        if (!error.response) {
+        const errorWithResponse = error as { response?: { status?: number; data?: { detail?: string } }; message?: string };
+        if (!errorWithResponse.response) {
           console.error('Network error - backend might not be running');
           toast.error("Cannot connect to server. Is the backend running on localhost:8000?");
           setIsLoading(false);
@@ -124,8 +125,8 @@ export function useAuth() {
         }
 
         // Handle specific error statuses
-        if (error.response?.status === 400) {
-          const detail = error.response?.data?.detail || "";
+        if (errorWithResponse.response?.status === 400) {
+          const detail = errorWithResponse.response?.data?.detail || "";
           if (detail.toLowerCase().includes("username")) {
             toast.error("This username is already taken");
           } else if (detail.toLowerCase().includes("email")) {
@@ -133,10 +134,10 @@ export function useAuth() {
           } else {
             toast.error(detail || "Registration failed");
           }
-        } else if (error.response?.status === 422) {
+        } else if (errorWithResponse.response?.status === 422) {
           toast.error("Invalid request format");
         } else {
-          const errorMessage = error.response?.data?.detail || error.message || "Registration failed";
+          const errorMessage = errorWithResponse.response?.data?.detail || errorWithResponse.message || "Registration failed";
           toast.error(errorMessage);
         }
 

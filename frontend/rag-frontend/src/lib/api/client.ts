@@ -44,7 +44,7 @@ apiClient.interceptors.response.use(
                          parseInt(error.response.headers['retry-after'] || '60', 10);
 
       // Create a user-friendly error with retry information
-      const rateLimitMessage = `Rate limit exceeded. Please try again in ${retryAfter} seconds.`;
+      const rateLimitMessage = `⏳ Rate limit exceeded. Please try again in ${retryAfter} seconds.`;
 
       // Dispatch custom event for UI components to handle
       if (typeof window !== 'undefined') {
@@ -57,13 +57,17 @@ apiClient.interceptors.response.use(
         }));
       }
 
-      // Enhance error with rate limit info
-      const enhancedError = new Error(rateLimitMessage) as Error & {
-        retryAfter: number;
-        isRateLimitError: boolean;
-      };
-      enhancedError.retryAfter = retryAfter;
-      enhancedError.isRateLimitError = true;
+      // Create enhanced error object with axios error properties
+      const enhancedError = Object.assign(new Error(rateLimitMessage), {
+        response: error.response,
+        request: error.request,
+        config: error.config,
+        code: '429',
+        status: 429,
+        isAxiosError: true,
+        retryAfter,
+        isRateLimitError: true,
+      });
 
       return Promise.reject(enhancedError);
     }
@@ -106,8 +110,12 @@ apiClient.interceptors.response.use(
 export function getErrorMessage(error: unknown): string {
   // Check for rate limit errors first
   if (error && typeof error === 'object' && 'isRateLimitError' in error) {
-    const rateLimitError = error as { isRateLimitError: unknown; message?: string };
-    return rateLimitError.message || 'Rate limit exceeded. Please try again later.';
+    const rateLimitError = error as { isRateLimitError: unknown; message?: string; retryAfter?: number };
+    if (rateLimitError.message) return rateLimitError.message;
+    if (rateLimitError.retryAfter) {
+      return `⏳ Rate limit exceeded. Please wait ${rateLimitError.retryAfter} seconds before trying again.`;
+    }
+    return '⏳ Rate limit exceeded. Please try again later.';
   }
 
   if (axios.isAxiosError(error)) {
@@ -116,12 +124,26 @@ export function getErrorMessage(error: unknown): string {
     // Handle rate limit response
     if (axiosError.response?.status === 429) {
       const retryAfter = axiosError.response.headers['retry-after'] || '60';
-      return `Rate limit exceeded. Please try again in ${retryAfter} seconds.`;
+      return `⏳ Rate limit exceeded. Please wait ${retryAfter} seconds before trying again.`;
     }
 
-    return axiosError.response?.data?.detail || error.message;
+    // Handle other error responses
+    if (axiosError.response?.data?.detail) {
+      return axiosError.response.data.detail;
+    }
+
+    // Use message from error
+    if (axiosError.message) {
+      return axiosError.message;
+    }
   }
-  return "An unexpected error occurred";
+
+  // Fallback for custom errors
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return "An unexpected error occurred. Please try again.";
 }
 
 // Helper to check if error is a rate limit error

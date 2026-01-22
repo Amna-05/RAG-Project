@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable react/no-unescaped-entities */
 
 import { FileText, MessageSquare, Zap, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -21,7 +22,7 @@ export default function DashboardPage() {
           Welcome back, {user?.username || "User"}!
         </h1>
         <p className="text-lg text-slate-600 dark:text-slate-400 mt-2">
-          Here's what you can do with your documents
+          Here&apos;s what you can do with your documents
         </p>
       </div>
 

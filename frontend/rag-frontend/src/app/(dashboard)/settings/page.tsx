@@ -16,7 +16,6 @@ import { apiClient } from "@/lib/api/client";
  */
 export default function SettingsPage() {
   const { user } = useAuthStore();
-  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [isLoadingPassword, setIsLoadingPassword] = useState(false);
 
   // Profile form
@@ -27,7 +26,7 @@ export default function SettingsPage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  const handleUpdateProfile = async (e: React.FormEvent) => {
+  const handleUpdateProfile = (e: React.FormEvent) => {
     e.preventDefault();
     // Profile update feature will be available in a future version
     toast.info("Profile update coming soon!");
@@ -63,9 +62,9 @@ export default function SettingsPage() {
       setTimeout(() => {
         window.location.href = "/login";
       }, 1000);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Password change error:", error);
-      const errorMessage = error.response?.data?.detail || error.message || "Failed to change password";
+      const errorMessage = (error as { response?: { data?: { detail?: string } }; message?: string })?.response?.data?.detail || (error as { message?: string })?.message || "Failed to change password";
       toast.error(errorMessage);
     } finally {
       setIsLoadingPassword(false);
@@ -131,15 +130,8 @@ export default function SettingsPage() {
             />
           </div>
 
-          <Button disabled={isLoadingProfile} className="gap-2">
-            {isLoadingProfile ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              "Save Profile"
-            )}
+          <Button disabled={false} className="gap-2">
+            Save Profile
           </Button>
         </form>
       </div>

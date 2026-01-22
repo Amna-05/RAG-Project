@@ -4,7 +4,10 @@ import type { NextConfig } from "next";
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  
+
+  // Output mode for Docker deployment
+  output: 'standalone',
+
   // Enable optimized package imports
   experimental: {
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],

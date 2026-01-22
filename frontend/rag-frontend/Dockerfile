@@ -17,10 +17,11 @@ RUN npm ci --legacy-peer-deps
 
 COPY src ./src
 COPY public ./public
-COPY next.config.js .
+COPY next.config.ts .
 COPY tsconfig.json .
-COPY tailwind.config.ts .
+COPY tailwind.config.js .
 COPY postcss.config.js .
+COPY components.json .
 
 RUN npm run build
 

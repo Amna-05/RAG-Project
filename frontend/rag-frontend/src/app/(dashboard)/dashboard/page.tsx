@@ -25,7 +25,7 @@ export default function DashboardPage() {
           Welcome back, {user?.full_name || user?.username}! 👋
         </h1>
         <p className="mt-2 text-slate-600 dark:text-slate-400">
-          Here's what's happening with your documents today.
+          Here&apos;s what&apos;s happening with your documents today.
         </p>
       </div>
 
@@ -142,7 +142,7 @@ export default function DashboardPage() {
                 Wait for Processing
               </h3>
               <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                We'll process your documents and create embeddings for AI chat.
+                We&apos;ll process your documents and create embeddings for AI chat.
               </p>
             </div>
           </div>

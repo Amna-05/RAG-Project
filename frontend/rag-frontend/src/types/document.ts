@@ -26,5 +26,5 @@ export interface DocumentChunk {
   document_id: string;
   chunk_index: number;
   content: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }

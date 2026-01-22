@@ -29,7 +29,15 @@
       "Bash(uv run alembic upgrade:*)",
       "Bash(alembic current:*)",
       "Bash(uv run alembic:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(tasklist:*)",
+      "Bash(taskkill:*)",
+      "Bash(powershell -Command \"Stop-Process -Name node -Force -ErrorAction SilentlyContinue; Write-Host ''Node processes stopped''\")",
+      "Bash(curl:*)",
+      "Bash(source .venv/Scripts/activate)",
+      "Bash(npm run dev:*)",
+      "Bash(grep:*)",
+      "Bash(docker compose:*)"
     ]
   },
   "outputStyle": "default"

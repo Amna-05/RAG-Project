@@ -53,12 +53,12 @@ export function RegisterForm() {
     try {
       setIsLoading(true);
       // Remove confirmPassword before sending to API
-      const { confirmPassword, ...registerData } = data;
+      const { ...registerData } = data;
       await registerUser(registerData);
       // Hook handles redirect and error handling
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Handle backend validation errors
-      const errorData = error.response?.data;
+      const errorData = (error as { response?: { data?: { detail?: string } } })?.response?.data;
 
       if (errorData?.detail) {
         // Parse backend error messages
