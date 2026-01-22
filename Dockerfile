@@ -41,8 +41,8 @@ COPY --from=builder /build/requirements.txt .
 RUN pip install --no-cache-dir --no-index --find-links /wheels -r requirements.txt && \
     rm -rf /wheels requirements.txt
 
-# Copy application code
-COPY --chown=appuser:appuser src/ src/
+# Copy application code directly to /app (not in src subdirectory)
+COPY --chown=appuser:appuser src/rag/ rag/
 COPY --chown=appuser:appuser alembic/ alembic/
 COPY --chown=appuser:appuser alembic.ini .
 COPY --chown=appuser:appuser .env.example .env
@@ -64,8 +64,5 @@ EXPOSE 8000
 # Set Python to run in unbuffered mode for real-time logging
 ENV PYTHONUNBUFFERED=1
 
-# Add src to Python path so 'rag' module can be found
-ENV PYTHONPATH=/app/src
-
-# Start Uvicorn (migrations run via railway.toml pre-start hook)
+# Start Uvicorn (rag module is now directly in /app)
 CMD ["uvicorn", "rag.main:app", "--host", "0.0.0.0", "--port", "8000"]
